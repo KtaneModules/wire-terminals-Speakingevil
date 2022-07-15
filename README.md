@@ -1,1 +1,1 @@
-# wire-terminals
+#[ModKit Wiki](../../wiki)
