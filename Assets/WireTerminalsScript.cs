@@ -1,4 +1,3 @@
-﻿using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Text.RegularExpressions;
@@ -28,9 +27,6 @@ public class WireTerminalsScript : MonoBehaviour {
     private static int moduleIDCounter;
     private int moduleID;
     private bool moduleSolved;
-	
-	List<int> CutWires = new List<int>();
-	int[] ReadingOrderWires = {1, 3, 5, 2, 4, 6, 25, 26, 27, 28, 29, 30, 31, 32, 7, 9, 11, 8, 10, 12, 33, 34, 35, 36, 37, 38, 39, 40, 13, 15, 17, 14, 16, 18, 41, 42, 43, 44, 45, 46, 47, 48, 19, 21, 23, 20, 22, 24};
 
     private void Awake()
     {
@@ -39,7 +35,7 @@ public class WireTerminalsScript : MonoBehaviour {
             l.material = lcols[4];
         for(int i = 0; i < 48; i++)
         {
-            int r = UnityEngine.Random.Range(0, 5);
+            int r = Random.Range(0, 5);
             int[] p = P(i);
             wgrid[i % 2][p[0], p[1]] = r;
             for (int j = 0; j < 3; j++)
@@ -74,7 +70,6 @@ public class WireTerminalsScript : MonoBehaviour {
                         wire.AddInteractionPunch(-0.3f);
                         Audio.PlayGameSoundAtTransform(KMSoundOverride.SoundEffect.WireSnip, wire.transform);
                         wire.gameObject.SetActive(false);
-						CutWires.Add(Array.IndexOf(ReadingOrderWires, w + 1) + 1);
                         int[] p = P(w);
                         wgrid[2][p[0], p[1]] += 1;
                         for (int i = 0; i < 24; i++)
@@ -165,7 +160,7 @@ public class WireTerminalsScript : MonoBehaviour {
             for (int i = 0; i < 4; i++)
                 for (int j = 0; j < 4; j++)
                 {
-                    int r = UnityEngine.Random.Range(0, 5);
+                    int r = Random.Range(0, 5);
                     lgrid[i, j] = r;
                     wgrid[0][2 * i, 2 * j] = lnums[r];
                     wgrid[1][2 * i, 2 * j] = lnums[r];
@@ -225,7 +220,7 @@ public class WireTerminalsScript : MonoBehaviour {
         }
         tgrid[0][j, k] = 2;
         tgrid[1][j, k] = 2;
-        tgrid[0][2 * UnityEngine.Random.Range(0, 4), 2 * UnityEngine.Random.Range(0, 4)] = 2;
+        tgrid[0][2 * Random.Range(0, 4), 2 * Random.Range(0, 4)] = 2;
         while(Enumerable.Range(0, 16).Select(x => tgrid[0][2 * (x / 4), 2 * (x % 4)] == tgrid[1][2 * (x / 4), 2 * (x % 4)]).Any(x => !x))
         {
             for (int i = 0; i < 16; i++)
@@ -254,44 +249,47 @@ public class WireTerminalsScript : MonoBehaviour {
         }
         return Enumerable.Range(0, 16).Select(x => tgrid[0][2 * (x / 4), 2 * (x % 4)] == 3).All(x => x);
     }
-	
-	//twitch plays
-    #pragma warning disable 414
-    private readonly string TwitchHelpMessage = @"To cut a wire on the module (the command will cut the wire based on the number you put in reading order), use the command !{0} cut [1-48]";
-    #pragma warning restore 414
-	
-	IEnumerator ProcessTwitchCommand(string command)
+
+#pragma warning disable 414
+    private readonly string TwitchHelpMessage = @"!{0} cut <1-48> [Cuts wire in specified position in reading order. Chain with spaces.]";
+#pragma warning restore 414
+
+    List<int> CutWires = new List<int>();
+    int[] ReadingOrderWires = { 1, 3, 5, 2, 4, 6, 25, 26, 27, 28, 29, 30, 31, 32, 7, 9, 11, 8, 10, 12, 33, 34, 35, 36, 37, 38, 39, 40, 13, 15, 17, 14, 16, 18, 41, 42, 43, 44, 45, 46, 47, 48, 19, 21, 23, 20, 22, 24 };
+
+    IEnumerator ProcessTwitchCommand(string command)
     {
-		string[] parameters = command.Split(' ');
-		if (Regex.IsMatch(parameters[0], @"^\s*cut\s*$", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant))
-		{
-			yield return null;
-			if (parameters.Length != 2)
-			{
-				yield return "sendtochaterror Parameter length invalid. Command ignored.";
-				yield break;
-			}
-			
-			int Out;
-			if (!int.TryParse(parameters[1], out Out))
-			{
-				yield return "sendtochaterror Invalid wire placement number. Command ignored.";
-				yield break;
-			}
-			
-			if (Out < 1 || Out > 48)
-			{
-				yield return "sendtochaterror Wire placement number is not 1-48. Command ignored.";
-				yield break;
-			}
-			
-			if (CutWires.Contains(Out))
-			{
-				yield return "sendtochaterror This wire is already cut. Command ignored.";
-				yield break;
-			}
-			
-			wires[ReadingOrderWires[Out-1]-1].OnInteract();
-		}
-	}
+        string[] parameters = command.Split(' ').Distinct().ToArray();
+        if (Regex.IsMatch(parameters[0], @"^\s*cut\s*$", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant))
+        {
+            yield return null;
+            if (parameters.Length < 2)
+            {
+                yield return "sendtochaterror!f Parameter length invalid.";
+                yield break;
+            }
+            int[] c = new int[parameters.Length - 1];
+            int Out;
+            for (int i = 0; i < c.Length; i++)
+            {
+                if (!int.TryParse(parameters[i + 1], out Out) || Out < 1 || Out > 48)
+                {
+                    yield return "sendtochaterror!f Invalid wire placement number: " + parameters[i + 1];
+                    yield break;
+                }
+                if (CutWires.Contains(Out))
+                {
+                    yield return "sendtochaterror!f Wire " + parameters[i + 1] + " is already cut.";
+                    yield break;
+                }
+                c[i] = Out;               
+            }
+            for (int i = 0; i < c.Length; i++)
+            {
+                wires[ReadingOrderWires[c[i] - 1] - 1].OnInteract();
+                yield return new WaitForSeconds(0.1f);
+            }
+        }
+    }
 }
+
