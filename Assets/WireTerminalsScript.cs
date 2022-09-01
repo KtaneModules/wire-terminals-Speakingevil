@@ -254,42 +254,56 @@ public class WireTerminalsScript : MonoBehaviour {
     private readonly string TwitchHelpMessage = @"!{0} cut <1-48> [Cuts wire in specified position in reading order. Chain with spaces.]";
 #pragma warning restore 414
 
-    List<int> CutWires = new List<int>();
     int[] ReadingOrderWires = { 1, 3, 5, 2, 4, 6, 25, 26, 27, 28, 29, 30, 31, 32, 7, 9, 11, 8, 10, 12, 33, 34, 35, 36, 37, 38, 39, 40, 13, 15, 17, 14, 16, 18, 41, 42, 43, 44, 45, 46, 47, 48, 19, 21, 23, 20, 22, 24 };
 
     IEnumerator ProcessTwitchCommand(string command)
     {
-        string[] parameters = command.Split(' ').Distinct().ToArray();
-        if (Regex.IsMatch(parameters[0], @"^\s*cut\s*$", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant))
+        command = command.Trim().ToLowerInvariant();
+        if (command.StartsWith("cut "))
+            command = command.Substring(4);
+        string[] parameters = command.Split(' ').ToArray();
+        List<int> list = new List<int>();
+        for (int i = 0; i < parameters.Length; i++)
         {
-            yield return null;
-            if (parameters.Length < 2)
+            int ix;
+            if (!int.TryParse(parameters[i], out ix) || ix < 1 || ix > 48)
             {
-                yield return "sendtochaterror!f Parameter length invalid.";
+                yield return "sendtochaterror Invalid wire placement number: " + parameters[i];
                 yield break;
             }
-            int[] c = new int[parameters.Length - 1];
-            int Out;
-            for (int i = 0; i < c.Length; i++)
+            list.Add(ix);
+        }
+        if (list.Distinct().Count() != list.Count())
+        {
+            yield return "sendtochaterror Duplicate cuts detected! Command ignored.";
+            yield break;
+        }
+        for (int i = 0; i < list.Count; i++)
+        {
+            if (cut[1][ReadingOrderWires[list[i] - 1] - 1])
             {
-                if (!int.TryParse(parameters[i + 1], out Out) || Out < 1 || Out > 48)
-                {
-                    yield return "sendtochaterror!f Invalid wire placement number: " + parameters[i + 1];
-                    yield break;
-                }
-                if (CutWires.Contains(Out))
-                {
-                    yield return "sendtochaterror!f Wire " + parameters[i + 1] + " is already cut.";
-                    yield break;
-                }
-                c[i] = Out;               
-            }
-            for (int i = 0; i < c.Length; i++)
-            {
-                wires[ReadingOrderWires[c[i] - 1] - 1].OnInteract();
-                yield return new WaitForSeconds(0.1f);
+                yield return "sendtochaterror Wire " + list[i] + " is already cut! Command ignored.";
+                yield break;
             }
         }
+        yield return null;
+        for (int i = 0; i < list.Count; i++)
+        {
+            wires[ReadingOrderWires[list[i] - 1] - 1].OnInteract();
+            yield return new WaitForSeconds(0.1f);
+        }
+    }
+
+    private IEnumerator TwitchHandleForcedSolve()
+    {
+        while (!moduleSolved)
+            for (int i = 0; i < 48; i++)
+                if (cut[0][i])
+                {
+                    wires[i].OnInteract();
+                    if (!moduleSolved)
+                        yield return new WaitForSeconds(0.1f);
+                }
     }
 }
 
